@@ -82,6 +82,7 @@ check_include_file (syslog.h HAVE_SYSLOG_H)
 check_include_file (ucontext.h HAVE_UCONTEXT_H)
 check_include_file (unistd.h HAVE_UNISTD_H)
 check_include_file (unwind.h HAVE_UNWIND_H)
+check_include_file (pwd.h HAVE_PWD_H)
 
 check_include_file_cxx ("ext/hash_map" HAVE_EXT_HASH_MAP)
 check_include_file_cxx ("ext/hash_set" HAVE_EXT_HASH_SET)
@@ -318,6 +319,18 @@ else (HAVE_USING_OPERATOR)
   set (ac_cv_cxx_using_operator 0)
 endif (HAVE_USING_OPERATOR)
 
+
+check_cxx_source_compiles ("
+#include <cstdlib>
+#include <time.h>
+int main()
+{
+    time_t timep;
+    struct tm result;
+    localtime_r(&timep, &result);
+    return EXIT_SUCCESS;
+}
+" HAVE_LOCALTIME_R)
 set (SIZEOF_VOID_P ${CMAKE_SIZEOF_VOID_P})
 
 if (WITH_THREADS AND Threads_FOUND)
@@ -544,6 +557,7 @@ if (BUILD_TESTING)
 
   if (TARGET stacktrace_unittest)
     add_test (NAME stacktrace COMMAND stacktrace_unittest)
+    set_tests_properties(stacktrace PROPERTIES TIMEOUT 30)
   endif (TARGET stacktrace_unittest)
 
   add_test (NAME stl_logging COMMAND stl_logging_unittest)

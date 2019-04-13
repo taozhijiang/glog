@@ -272,17 +272,24 @@ void TestLogging(bool check_counts) {
   LOG(ERROR) << string("foo") << ' '<< j << ' ' << setw(10) << j << " "
              << setw(1) << hex << j;
 
+  {
+    google::LogMessage outer(__FILE__, __LINE__, GLOG_ERROR);
+    outer.stream() << "outer";
+
+    LOG(ERROR) << "inner";
+  }
+
   LogMessage("foo", LogMessage::kNoLogPrefix, GLOG_INFO).stream() << "no prefix";
 
   if (check_counts) {
     CHECK_EQ(base_num_infos   + 14, LogMessage::num_messages(GLOG_INFO));
     CHECK_EQ(base_num_warning + 3,  LogMessage::num_messages(GLOG_WARNING));
-    CHECK_EQ(base_num_errors  + 15, LogMessage::num_messages(GLOG_ERROR));
+    CHECK_EQ(base_num_errors  + 17, LogMessage::num_messages(GLOG_ERROR));
   }
 }
 
 static void NoAllocNewHook() {
-  CHECK(false) << "unexpected new";
+  LOG(FATAL) << "unexpected new";
 }
 
 struct NewHook {
@@ -316,7 +323,7 @@ void TestRawLogging() {
   RAW_LOG(WARNING, "%s", s);
   const char const_s[] = "const array";
   RAW_LOG(INFO, "%s", const_s);
-  void* p = reinterpret_cast<void*>(0x12345678);
+  void* p = reinterpret_cast<void*>(PTR_TEST_VALUE);
   RAW_LOG(INFO, "ptr %p", p);
   p = NULL;
   RAW_LOG(INFO, "ptr %p", p);
@@ -565,9 +572,10 @@ void TestDCHECK() {
   DCHECK_GT(2, 1);
   DCHECK_LT(1, 2);
 
-  auto_ptr<int64> sptr(new int64);
-  int64* ptr = DCHECK_NOTNULL(sptr.get());
-  CHECK_EQ(ptr, sptr.get());
+  int64* orig_ptr = new int64;
+  int64* ptr = DCHECK_NOTNULL(orig_ptr);
+  CHECK_EQ(ptr, orig_ptr);
+  delete orig_ptr;
 }
 
 void TestSTREQ() {
@@ -768,17 +776,18 @@ static void TestOneTruncate(const char *path, int64 limit, int64 keep,
   CHECK_ERR(fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0600));
 
   const char *discardstr = "DISCARDME!", *keepstr = "KEEPME!";
+  const size_t discard_size = strlen(discardstr), keep_size = strlen(keepstr);
 
   // Fill the file with the requested data; first discard data, then kept data
   int64 written = 0;
   while (written < dsize) {
-    int bytes = min<int64>(dsize - written, strlen(discardstr));
+    int bytes = min<int64>(dsize - written, discard_size);
     CHECK_ERR(write(fd, discardstr, bytes));
     written += bytes;
   }
   written = 0;
   while (written < ksize) {
-    int bytes = min<int64>(ksize - written, strlen(keepstr));
+    int bytes = min<int64>(ksize - written, keep_size);
     CHECK_ERR(write(fd, keepstr, bytes));
     written += bytes;
   }
@@ -800,7 +809,7 @@ static void TestOneTruncate(const char *path, int64 limit, int64 keep,
   const char *p = buf;
   int64 checked = 0;
   while (checked < expect) {
-    int bytes = min<int64>(expect - checked, strlen(keepstr));
+    int bytes = min<int64>(expect - checked, keep_size);
     CHECK(!memcmp(p, keepstr, bytes));
     checked += bytes;
   }
@@ -1067,10 +1076,10 @@ TEST(Strerror, logging) {
 
 // Simple routines to look at the sizes of generated code for LOG(FATAL) and
 // CHECK(..) via objdump
-void MyFatal() {
+static void MyFatal() {
   LOG(FATAL) << "Failed";
 }
-void MyCheck(bool a, bool b) {
+static void MyCheck(bool a, bool b) {
   CHECK_EQ(a, b);
 }
 

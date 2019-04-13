@@ -1,3 +1,6 @@
+#ifndef GLOG_CONFIG_H
+#define GLOG_CONFIG_H
+
 /* define if glog doesn't use RTTI */
 #cmakedefine DISABLE_RTTI
 
@@ -130,6 +133,10 @@
 /* define if your compiler has __sync_val_compare_and_swap */
 #cmakedefine HAVE___SYNC_VAL_COMPARE_AND_SWAP
 
+
+/* define if localtime_r is available in time.h */
+#cmakedefine HAVE_LOCALTIME_R
+
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
 #cmakedefine LT_OBJDIR
@@ -182,3 +189,5 @@
 
 /* Puts following code inside the Google namespace */
 #cmakedefine _START_GOOGLE_NAMESPACE_ ${_START_GOOGLE_NAMESPACE_}
+
+#endif  // GLOG_CONFIG_H
