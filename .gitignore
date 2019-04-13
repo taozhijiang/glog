@@ -1,4 +1,7 @@
-autom4te.cache
-glog-*.tar.gz
-packages/rpm-unknown
-packages/debian-*
+_gsdata_/
+*.vpj
+*.vpw
+*.vpwhist
+*.vpwhistu
+*.vtg
+.DS_Store

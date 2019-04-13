@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.0)
+cmake_minimum_required (VERSION 2.8.11)
 
 if (POLICY CMP0042)
   cmake_policy (SET CMP0042 NEW)
@@ -26,7 +26,7 @@ set (CPACK_PACKAGE_VERSION_MINOR ${GLOG_MINOR_VERSION})
 set (CPACK_PACKAGE_VERSION_PATCH ${GLOG_PATCH_VERSION})
 set (CPACK_PACKAGE_VERSION ${GLOG_VERSION})
 
-option (WITH_GFLAGS "Use gflags" ON)
+option (WITH_GFLAGS "Use gflags" OFF)
 option (WITH_THREADS "Enable multithreading support" ON)
 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -559,25 +559,25 @@ install (TARGETS glog
   PUBLIC_HEADER DESTINATION include/glog
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib)
-
-if (gflags_FOUND)
-  set (gflags_DEPENDENCY "find_dependency (gflags ${gflags_VERSION})")
-endif (gflags_FOUND)
-
-configure_package_config_file (glog-config.cmake.in
-  ${CMAKE_CURRENT_BINARY_DIR}/glog-config.cmake
-  INSTALL_DESTINATION lib/cmake/glog
-  NO_CHECK_REQUIRED_COMPONENTS_MACRO)
-
-write_basic_package_version_file (glog-config-version.cmake VERSION
-  ${GLOG_VERSION} COMPATIBILITY SameMajorVersion)
-
-export (TARGETS glog NAMESPACE glog:: FILE glog-targets.cmake)
-export (PACKAGE glog)
-
-install (FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/glog-config.cmake
-  ${CMAKE_CURRENT_BINARY_DIR}/glog-config-version.cmake
-  DESTINATION lib/cmake/glog)
-
-install (EXPORT glog-targets NAMESPACE glog:: DESTINATION lib/cmake/glog)
+ 
+# if (gflags_FOUND)
+#   set (gflags_DEPENDENCY "find_dependency (gflags ${gflags_VERSION})")
+# endif (gflags_FOUND)
+# 
+# configure_package_config_file (glog-config.cmake.in
+#   ${CMAKE_CURRENT_BINARY_DIR}/glog-config.cmake
+#   INSTALL_DESTINATION lib/cmake/glog
+#   NO_CHECK_REQUIRED_COMPONENTS_MACRO)
+# 
+# write_basic_package_version_file (glog-config-version.cmake VERSION
+#   ${GLOG_VERSION} COMPATIBILITY SameMajorVersion)
+# 
+# export (TARGETS glog NAMESPACE glog:: FILE glog-targets.cmake)
+# export (PACKAGE glog)
+# 
+# install (FILES
+#   ${CMAKE_CURRENT_BINARY_DIR}/glog-config.cmake
+#   ${CMAKE_CURRENT_BINARY_DIR}/glog-config-version.cmake
+#   DESTINATION lib/cmake/glog)
+# 
+# install (EXPORT glog-targets NAMESPACE glog:: DESTINATION lib/cmake/glog)
