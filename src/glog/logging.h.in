@@ -451,7 +451,9 @@ DECLARE_bool(stop_logging_if_full_disk);
 #define COMPACT_GOOGLE_LOG_DFATAL @ac_google_namespace@::NullStreamFatal()
 #endif
 
-#define GOOGLE_LOG_INFO(counter) @ac_google_namespace@::LogMessage(__FILE__, __LINE__, __FUNCTION__, @ac_google_namespace@::GLOG_INFO, counter, &@ac_google_namespace@::LogMessage::SendToLog)
+#define GOOGLE_LOG_INFO(counter) \
+  @ac_google_namespace@::LogMessage(__FILE__, __LINE__, __FUNCTION__, @ac_google_namespace@::GLOG_INFO, counter, \
+  &@ac_google_namespace@::LogMessage::SendToLog)
 #define SYSLOG_INFO(counter) \
   @ac_google_namespace@::LogMessage(__FILE__, __LINE__, __FUNCTION__, @ac_google_namespace@::GLOG_INFO, counter, \
   &@ac_google_namespace@::LogMessage::SendToSyslogAndLog)
@@ -479,6 +481,39 @@ DECLARE_bool(stop_logging_if_full_disk);
 #define SYSLOG_DFATAL(counter) \
   @ac_google_namespace@::LogMessage(__FILE__, __LINE__, __FUNCTION__, @ac_google_namespace@::DFATAL_LEVEL, counter, \
   &@ac_google_namespace@::LogMessage::SendToSyslogAndLog)
+
+#define LEGACY_INFO(file, line, func) \
+  @ac_google_namespace@::LogMessage(file, line, func, @ac_google_namespace@::GLOG_INFO, 0, \
+  &@ac_google_namespace@::LogMessage::SendToLog)
+#define LEGACY_WARNING(file, line, func)  \
+  @ac_google_namespace@::LogMessage(file, line, func, @ac_google_namespace@::GLOG_WARNING, 0, \
+  &@ac_google_namespace@::LogMessage::SendToLog)
+#define LEGACY_ERROR(file, line, func)  \
+  @ac_google_namespace@::LogMessage(file, line, func, @ac_google_namespace@::GLOG_ERROR, 0, \
+  &@ac_google_namespace@::LogMessage::SendToLog)
+#define LEGACY_FATAL(file, line, func) \
+  @ac_google_namespace@::LogMessage(file, line, func, @ac_google_namespace@::GLOG_FATAL, 0, \
+  &@ac_google_namespace@::LogMessage::SendToLog)
+#define LEGACY_DFATAL(file, line, func) \
+  @ac_google_namespace@::LogMessage(file, line, func, @ac_google_namespace@::DFATAL_LEVEL, 0, \
+  &@ac_google_namespace@::LogMessage::SendToLog)
+
+#define LEGACY_INFO_IF(cond, file, line, func) \
+  static_cast<void>(0),             \
+  !(condition) ? (void) 0 : @ac_google_namespace@::LogMessageVoidify() & LEGACY_INFO(file, line, func)
+#define LEGACY_WARNING_IF(cond, file, line, func)  \
+  static_cast<void>(0),             \
+  !(condition) ? (void) 0 : @ac_google_namespace@::LogMessageVoidify() & LEGACY_WARNING(file, line, func)
+#define LEGACY_ERROR_IF(cond, file, line, func)  \
+  static_cast<void>(0),             \
+  !(condition) ? (void) 0 : @ac_google_namespace@::LogMessageVoidify() & LEGACY_ERROR(file, line, func)
+#define LEGACY_FATAL_IF(cond, file, line, func) \
+  static_cast<void>(0),             \
+  !(condition) ? (void) 0 : @ac_google_namespace@::LogMessageVoidify() & LEGACY_FATAL(file, line, func)
+#define LEGACY_DFATAL_IF(cond, file, line, func) \
+  static_cast<void>(0),             \
+  !(condition) ? (void) 0 : @ac_google_namespace@::LogMessageVoidify() & LEGACY_DFATAL(file, line, func)
+
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__CYGWIN__) || defined(__CYGWIN32__)
 // A very useful logging macro to log windows errors:
@@ -508,6 +543,7 @@ DECLARE_bool(stop_logging_if_full_disk);
 // function of LogMessage which seems to avoid the problem.
 #define LOG(severity) COMPACT_GOOGLE_LOG_ ## severity.stream()
 #define SYSLOG(severity) SYSLOG_ ## severity(0).stream()
+#define LEGACY(severity, file, line, func) LEGACY_ ## severity(file, line, func).stream()
 
 @ac_google_start_namespace@
 
@@ -576,6 +612,9 @@ class LogSink;  // defined below
 #define SYSLOG_IF(severity, condition) \
   static_cast<void>(0),                \
   !(condition) ? (void) 0 : @ac_google_namespace@::LogMessageVoidify() & SYSLOG(severity)
+#define LEGACY_IF(severity, condition, file, line, func) \
+  static_cast<void>(0),                \
+  !(condition) ? (void) 0 : @ac_google_namespace@::LogMessageVoidify() & LEGACY(severity, file, line, func)
 
 #define LOG_ASSERT(condition)  \
   LOG_IF(FATAL, !(condition)) << "Assert failed: " #condition

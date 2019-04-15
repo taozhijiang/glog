@@ -1267,6 +1267,8 @@ void LogMessage::Init(const char* file,
 
 #if 0
 
+  // 原始的Google日志格式
+
   // If specified, prepend a prefix to each line.  For example:
   //    I1018 160715 f5d4fbb0 logging.cc:1153]
   //    (log level, GMT month, date, time, thread_id, file basename, line)
@@ -1289,6 +1291,8 @@ void LogMessage::Init(const char* file,
   data_->num_prefix_chars_ = data_->stream_.pcount();
 
 #else
+
+  // 适合普通项目看的，美化日志格式
 
   // If specified, prepend a prefix to each line.  For example:
   // [yyyy-mm-ddThh:mm:ss.uuuuuu IWEF threadid file:line] msg
