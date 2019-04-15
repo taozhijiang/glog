@@ -114,6 +114,7 @@ static CrashReason crash_reason;
 static char crash_buf[kLogBufSize + 1] = { 0 };  // Will end in '\0'
 
 void RawLog__(LogSeverity severity, const char* file, int line,
+              const char* func,
               const char* format, ...) {
   if (!(FLAGS_logtostderr || severity >= FLAGS_stderrthreshold ||
         FLAGS_alsologtostderr || !IsGoogleLoggingInitialized())) {
@@ -126,12 +127,13 @@ void RawLog__(LogSeverity severity, const char* file, int line,
   int size = sizeof(buffer);
 
   // NOTE: this format should match the specification in base/logging.h
-  DoRawLog(&buf, &size, "%c%02d%02d %02d:%02d:%02d.%06d %5u %s:%d] RAW: ",
+  DoRawLog(&buf, &size, "%c%02d%02d %02d:%02d:%02d.%06d %5u %s:%d %s] RAW: ",
            LogSeverityNames[severity][0],
            1 + t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec,
            last_usecs_for_raw_log,
            static_cast<unsigned int>(GetTID()),
-           const_basename(const_cast<char *>(file)), line);
+           const_basename(const_cast<char *>(file)), line, 
+           const_cast<char *>(func));
 
   // Record the position and size of the buffer after the prefix
   const char* msg_start = buf;

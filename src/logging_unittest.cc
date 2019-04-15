@@ -124,17 +124,17 @@ static void BM_Check1(int n) {
 }
 BENCHMARK(BM_Check1);
 
-static void CheckFailure(int a, int b, const char* file, int line, const char* msg);
+static void CheckFailure(int a, int b, const char* file, int line, const char* func, const char* msg);
 static void BM_Check3(int n) {
   while (n-- > 0) {
-    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, "n < x");
-    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, "n < x");
-    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, "n < x");
-    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, "n < x");
-    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, "n < x");
-    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, "n < x");
-    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, "n < x");
-    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, "n < x");
+    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, __FUNCTION__, "n < x");
+    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, __FUNCTION__, "n < x");
+    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, __FUNCTION__, "n < x");
+    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, __FUNCTION__, "n < x");
+    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, __FUNCTION__, "n < x");
+    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, __FUNCTION__, "n < x");
+    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, __FUNCTION__, "n < x");
+    if (n < x) CheckFailure(n, x, __FILE__, __LINE__, __FUNCTION__, "n < x");
   }
 }
 BENCHMARK(BM_Check3);
@@ -156,7 +156,7 @@ static void BM_Check2(int n) {
 }
 BENCHMARK(BM_Check2);
 
-static void CheckFailure(int, int, const char* /* file */, int /* line */,
+static void CheckFailure(int, int, const char* /* file */, int /* line */, const char* /* func */,
                          const char* /* msg */) {
 }
 
@@ -273,7 +273,7 @@ void TestLogging(bool check_counts) {
              << setw(1) << hex << j;
 
   {
-    google::LogMessage outer(__FILE__, __LINE__, GLOG_ERROR);
+    google::LogMessage outer(__FILE__, __LINE__, __FUNCTION__, GLOG_ERROR);
     outer.stream() << "outer";
 
     LOG(ERROR) << "inner";

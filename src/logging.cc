@@ -359,6 +359,7 @@ struct LogMessage::LogMessageData  {
   size_t num_chars_to_syslog_;  // # of chars of msg to send to syslog
   const char* basename_;        // basename of file that called LOG
   const char* fullname_;        // fullname of file that called LOG
+  const char* funcname_;        // function/method of file that called LOG
   bool has_been_flushed_;       // false => data has not been flushed
   bool first_fatal_;            // true => this was first fatal msg
 
@@ -1170,54 +1171,55 @@ LogMessage::LogMessageData::LogMessageData()
   : stream_(message_text_, LogMessage::kMaxLogMessageLen, 0) {
 }
 
-LogMessage::LogMessage(const char* file, int line, LogSeverity severity,
+LogMessage::LogMessage(const char* file, int line, const char* func, LogSeverity severity,
                        int ctr, void (LogMessage::*send_method)())
     : allocated_(NULL) {
-  Init(file, line, severity, send_method);
+  Init(file, line, func, severity, send_method);
   data_->stream_.set_ctr(ctr);
 }
 
-LogMessage::LogMessage(const char* file, int line,
+LogMessage::LogMessage(const char* file, int line, const char* func,
                        const CheckOpString& result)
     : allocated_(NULL) {
-  Init(file, line, GLOG_FATAL, &LogMessage::SendToLog);
+  Init(file, line, func, GLOG_FATAL, &LogMessage::SendToLog);
   stream() << "Check failed: " << (*result.str_) << " ";
 }
 
-LogMessage::LogMessage(const char* file, int line)
+LogMessage::LogMessage(const char* file, int line, const char* func)
     : allocated_(NULL) {
-  Init(file, line, GLOG_INFO, &LogMessage::SendToLog);
+  Init(file, line, func, GLOG_INFO, &LogMessage::SendToLog);
 }
 
-LogMessage::LogMessage(const char* file, int line, LogSeverity severity)
+LogMessage::LogMessage(const char* file, int line, const char* func, LogSeverity severity)
     : allocated_(NULL) {
-  Init(file, line, severity, &LogMessage::SendToLog);
+  Init(file, line, func, severity, &LogMessage::SendToLog);
 }
 
-LogMessage::LogMessage(const char* file, int line, LogSeverity severity,
+LogMessage::LogMessage(const char* file, int line, const char* func, LogSeverity severity,
                        LogSink* sink, bool also_send_to_log)
     : allocated_(NULL) {
-  Init(file, line, severity, also_send_to_log ? &LogMessage::SendToSinkAndLog :
+  Init(file, line, func, severity, also_send_to_log ? &LogMessage::SendToSinkAndLog :
                                                 &LogMessage::SendToSink);
   data_->sink_ = sink;  // override Init()'s setting to NULL
 }
 
-LogMessage::LogMessage(const char* file, int line, LogSeverity severity,
+LogMessage::LogMessage(const char* file, int line, const char* func, LogSeverity severity,
                        vector<string> *outvec)
     : allocated_(NULL) {
-  Init(file, line, severity, &LogMessage::SaveOrSendToLog);
+  Init(file, line, func, severity, &LogMessage::SaveOrSendToLog);
   data_->outvec_ = outvec; // override Init()'s setting to NULL
 }
 
-LogMessage::LogMessage(const char* file, int line, LogSeverity severity,
+LogMessage::LogMessage(const char* file, int line, const char* func, LogSeverity severity,
                        string *message)
     : allocated_(NULL) {
-  Init(file, line, severity, &LogMessage::WriteToStringAndLog);
+  Init(file, line, func, severity, &LogMessage::WriteToStringAndLog);
   data_->message_ = message;  // override Init()'s setting to NULL
 }
 
 void LogMessage::Init(const char* file,
                       int line,
+                      const char* func,
                       LogSeverity severity,
                       void (LogMessage::*send_method)()) {
   allocated_ = NULL;
@@ -1254,9 +1256,11 @@ void LogMessage::Init(const char* file,
   data_->num_chars_to_syslog_ = 0;
   data_->basename_ = const_basename(file);
   data_->fullname_ = file;
+  data_->funcname_ = func;
   data_->has_been_flushed_ = false;
 
 #if 1
+
   // If specified, prepend a prefix to each line.  For example:
   //    I1018 160715 f5d4fbb0 logging.cc:1153]
   //    (log level, GMT month, date, time, thread_id, file basename, line)
@@ -1299,7 +1303,9 @@ void LogMessage::Init(const char* file,
              << setfill(' ') << setw(5)
              << static_cast<unsigned int>(GetTID()) << setfill('0')
              << ' '
-             << data_->basename_ << ':' << data_->line_ << "] ";
+             << data_->basename_ << ':' << data_->line_ << ' '
+             << data_->funcname_ 
+             << "] ";
   }
   data_->num_prefix_chars_ = data_->stream_.pcount();
 
@@ -1639,10 +1645,10 @@ ostream& operator<<(ostream &os, const PRIVATE_Counter&) {
   return os;
 }
 
-ErrnoLogMessage::ErrnoLogMessage(const char* file, int line,
+ErrnoLogMessage::ErrnoLogMessage(const char* file, int line, const char* func,
                                  LogSeverity severity, int ctr,
                                  void (LogMessage::*send_method)())
-    : LogMessage(file, line, severity, ctr, send_method) {
+    : LogMessage(file, line, func, severity, ctr, send_method) {
 }
 
 ErrnoLogMessage::~ErrnoLogMessage() {
@@ -2104,12 +2110,12 @@ string StrError(int err) {
   return buf;
 }
 
-LogMessageFatal::LogMessageFatal(const char* file, int line) :
-    LogMessage(file, line, GLOG_FATAL) {}
+LogMessageFatal::LogMessageFatal(const char* file, int line, const char* func) :
+    LogMessage(file, line, func, GLOG_FATAL) {}
 
-LogMessageFatal::LogMessageFatal(const char* file, int line,
+LogMessageFatal::LogMessageFatal(const char* file, int line,  const char* func,
                                  const CheckOpString& result) :
-    LogMessage(file, line, result) {}
+    LogMessage(file, line, func, result) {}
 
 LogMessageFatal::~LogMessageFatal() {
     Flush();
