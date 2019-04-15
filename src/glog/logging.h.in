@@ -364,6 +364,9 @@ DECLARE_string(log_dir);
 // Set the log file mode.
 DECLARE_int32(logfile_mode);
 
+// Set whether send to syslog, with valid syslog facility >= 0.
+DECLARE_int32(syslog_facility);
+
 // Sets the path of the directory into which to put additional links
 // to the log files.
 DECLARE_string(log_link);
@@ -1253,6 +1256,7 @@ public:
   // Theses should not be called directly outside of logging.*,
   // only passed as SendMethod arguments to other LogMessage methods:
   void SendToLog();  // Actually dispatch to the logs
+  void SendToSyslog();        // Actually dispatch to syslog
   void SendToSyslogAndLog();  // Actually dispatch to syslog and the logs
 
   // Call abort() or similar to perform LOG(FATAL) crash.
@@ -1328,8 +1332,11 @@ inline void LogAtLevel(int const severity, std::string const &msg) {
 // Microsoft Visual Studio 14 (2015) sets __cplusplus==199711 despite
 // reasonably good C++11 support, so we set LANG_CXX for it and
 // newer versions (_MSC_VER >= 1900).
-#if (defined(__GXX_EXPERIMENTAL_CXX0X__) || __cplusplus >= 201103L || \
-     (defined(_MSC_VER) && _MSC_VER >= 1900))
+
+//
+// gcc-4.4.7 for RHEL-6.x will not support full c++0x features, so give up.
+//
+#if (__cplusplus >= 201103L || (defined(_MSC_VER) && _MSC_VER >= 1900))
 // Helper for CHECK_NOTNULL().
 //
 // In C++11, all cases can be handled by a single function. Since the value

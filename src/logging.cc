@@ -170,6 +170,12 @@ GLOG_DEFINE_int32(logfile_mode, 0664, "Log file mode/permissions.");
 GLOG_DEFINE_string(log_dir, DefaultLogDir(),
                    "If specified, logfiles are written into this directory instead "
                    "of the default logging directory.");
+#ifdef HAVE_SYSLOG_H
+GLOG_DEFINE_int32(syslog_facility, -1,
+                  "syslog facilicty settings, <0 will not send to syslog, and this is "
+                  "the default behavier.");
+#endif
+                   
 GLOG_DEFINE_string(log_link, "", "Put additional links to the log "
                    "files in this directory");
 
@@ -1259,7 +1265,7 @@ void LogMessage::Init(const char* file,
   data_->funcname_ = func;
   data_->has_been_flushed_ = false;
 
-#if 1
+#if 0
 
   // If specified, prepend a prefix to each line.  For example:
   //    I1018 160715 f5d4fbb0 logging.cc:1153]
@@ -1430,6 +1436,8 @@ void LogMessage::SendToLog() EXCLUSIVE_LOCKS_REQUIRED(log_mutex) {
   // global flag: never log to file if set.  Also -- don't log to a
   // file if we haven't parsed the command line flags to get the
   // program name.
+  
+  // 没有初始化，或者打印到标准输出，就不写入日志
   if (FLAGS_logtostderr || !IsGoogleLoggingInitialized()) {
     ColoredWriteToStderr(data_->severity_,
                          data_->message_text_, data_->num_chars_to_log_);
@@ -1447,6 +1455,9 @@ void LogMessage::SendToLog() EXCLUSIVE_LOCKS_REQUIRED(log_mutex) {
     LogDestination::LogToAllLogfiles(data_->severity_, data_->timestamp_,
                                      data_->message_text_,
                                      data_->num_chars_to_log_);
+                                     
+    // 如果需要，全部发送到Syslog中去
+    SendToSyslog();
 
     LogDestination::MaybeLogToStderr(data_->severity_, data_->message_text_,
                                      data_->num_chars_to_log_);
@@ -1597,19 +1608,48 @@ void LogMessage::SendToSyslogAndLog() {
 #ifdef HAVE_SYSLOG_H
   // Before any calls to syslog(), make a single call to openlog()
   static bool openlog_already_called = false;
-  if (!openlog_already_called) {
+  if (!openlog_already_called && FLAGS_syslog_facility >= 0) {
     openlog(glog_internal_namespace_::ProgramInvocationShortName(),
             LOG_CONS | LOG_NDELAY | LOG_PID,
-            LOG_USER);
+            FLAGS_syslog_facility);
     openlog_already_called = true;
   }
 
   // This array maps Google severity levels to syslog levels
-  const int SEVERITY_TO_LEVEL[] = { LOG_INFO, LOG_WARNING, LOG_ERR, LOG_EMERG };
-  syslog(LOG_USER | SEVERITY_TO_LEVEL[static_cast<int>(data_->severity_)], "%.*s",
-         int(data_->num_chars_to_syslog_),
-         data_->message_text_ + data_->num_prefix_chars_);
+  // 只有合法的syslog facility 才会转发日志
+  if (FLAGS_syslog_facility >= 0 ) {
+    const int SEVERITY_TO_LEVEL[] = { LOG_INFO, LOG_WARNING, LOG_ERR, LOG_EMERG };
+    syslog(FLAGS_syslog_facility | SEVERITY_TO_LEVEL[static_cast<int>(data_->severity_)], "%.*s",
+           int(data_->num_chars_to_syslog_),
+           data_->message_text_ + data_->num_prefix_chars_);
+  }
   SendToLog();
+#else
+  LOG(ERROR) << "No syslog support: message=" << data_->message_text_;
+#endif
+}
+
+// L >= log_mutex (callers must hold the log_mutex).
+void LogMessage::SendToSyslog() {
+#ifdef HAVE_SYSLOG_H
+  // Before any calls to syslog(), make a single call to openlog()
+  static bool openlog_already_called = false;
+  if (!openlog_already_called && FLAGS_syslog_facility >= 0) {
+    openlog(glog_internal_namespace_::ProgramInvocationShortName(),
+            LOG_CONS | LOG_NDELAY | LOG_PID,
+            FLAGS_syslog_facility);
+    openlog_already_called = true;
+  }
+
+  // This array maps Google severity levels to syslog levels
+  // 只有合法的syslog facility 才会转发日志
+  if (FLAGS_syslog_facility >= 0 ) {
+    const int SEVERITY_TO_LEVEL[] = { LOG_INFO, LOG_WARNING, LOG_ERR, LOG_EMERG };
+    syslog(FLAGS_syslog_facility | SEVERITY_TO_LEVEL[static_cast<int>(data_->severity_)], "%.*s",
+           int(data_->num_chars_to_syslog_),
+           data_->message_text_ + data_->num_prefix_chars_);
+  }
+  
 #else
   LOG(ERROR) << "No syslog support: message=" << data_->message_text_;
 #endif

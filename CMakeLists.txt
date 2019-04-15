@@ -12,6 +12,17 @@ project (google-glog)
 
 enable_testing ()
 
+option(BUILD_DEBUG "Build Project for Debug Propurse..." OFF)
+
+if(BUILD_DEBUG)
+    set(CMAKE_BUILD_TYPE Debug)
+    message(STATUS "${Red}build_type Debug flag: ${CMAKE_CXX_FLAGS_DEBUG}${ColourReset}")
+else(BUILD_DEBUG)
+    set(CMAKE_BUILD_TYPE RelWithDebInfo)
+    #add_definitions(-DNP_DEBUG)
+    message(STATUS "${Red}build_type RelWithDebInfo flag: ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}${ColourReset}")
+endif(BUILD_DEBUG)
+
 set (GLOG_MAJOR_VERSION 0)
 set (GLOG_MINOR_VERSION 3)
 set (GLOG_PATCH_VERSION 5)
