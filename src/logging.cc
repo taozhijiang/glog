@@ -448,7 +448,9 @@ class LogFileObject : public base::Logger {
   // Actually create a logfile using the value of base_filename_ and the
   // supplied argument time_pid_string
   // REQUIRES: lock_ is held
-  bool CreateLogfile(const string& time_pid_string);
+
+  // filename like 201904/xxxx_20190415
+  bool CreateLogfile(const string& date_string);
 };
 
 }  // namespace
@@ -462,7 +464,7 @@ class LogDestination {
 
   // These methods are just forwarded to by their global versions.
   static void SetLogDestination(LogSeverity severity,
-				const char* base_filename);
+                const char* base_filename);
   static void SetLogSymlink(LogSeverity severity,
                             const char* symlink_basename);
   static void AddLogSink(LogSink *destination);
@@ -905,11 +907,29 @@ void LogFileObject::FlushUnlocked(){
   next_flush_time_ = CycleClock_Now() + UsecToCycles(next);
 }
 
-bool LogFileObject::CreateLogfile(const string& time_pid_string) {
+bool LogFileObject::CreateLogfile(const string& date_string) {
   string string_filename = base_filename_+filename_extension_+
-                           time_pid_string;
+                           date_string;
+
+  // 检查父目录是否存在
+  std::string::size_type pos = string_filename.rfind("/");
+  if (pos == std::string::npos) {
+      fprintf(stderr, "COULD NOT CREATE basedir %s.\n", string_filename.c_str());
+      return false;
+  }
+  std::string basedir = string_filename.substr(0, pos);
+  if (::access(basedir.c_str(), R_OK | W_OK) != 0) {
+      // 创建目录
+      ::mkdir(basedir.c_str(), FLAGS_logfile_mode | 0110 );
+
+      if (::access(basedir.c_str(), R_OK | W_OK) != 0) {
+          fprintf(stderr, "COULD NOT CREATE basedir %s.\n", basedir.c_str());
+          return false;
+      }
+  }
+
   const char* filename = string_filename.c_str();
-  int fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, FLAGS_logfile_mode);
+  int fd = open(filename, O_WRONLY | O_CREAT, FLAGS_logfile_mode);
   if (fd == -1) return false;
 #ifdef HAVE_FCNTL
   // Mark the file close-on-exec. We don't really care if this fails
@@ -975,8 +995,8 @@ void LogFileObject::Write(bool force_flush,
     return;
   }
 
-  if (static_cast<int>(file_length_ >> 20) >= MaxLogSize() ||
-      PidHasChanged()) {
+  // 发生了日切，进行日志的rotate
+  if (DateHasChanged(timestamp)) {
     if (file_ != NULL) fclose(file_);
     file_ = NULL;
     file_length_ = bytes_since_flush_ = 0;
@@ -995,27 +1015,28 @@ void LogFileObject::Write(bool force_flush,
     localtime_r(&timestamp, &tm_time);
 
     // The logfile's filename will have the date/time & pid in it
-    ostringstream time_pid_stream;
-    time_pid_stream.fill('0');
-    time_pid_stream << 1900+tm_time.tm_year
-                    << setw(2) << 1+tm_time.tm_mon
-                    << setw(2) << tm_time.tm_mday
-                    << '-'
-                    << setw(2) << tm_time.tm_hour
-                    << setw(2) << tm_time.tm_min
-                    << setw(2) << tm_time.tm_sec
-                    << '.'
-                    << GetMainThreadPid();
-    const string& time_pid_string = time_pid_stream.str();
+    // Just date include and rotated
+    ostringstream time_stream;
+    time_stream.fill('0');
+    time_stream << 1900+tm_time.tm_year
+                << setw(2) << 1+tm_time.tm_mon
+                << setw(2) << tm_time.tm_mday;
 
+    std::string date_string = time_stream.str();
+    std::string date_prefix = date_string.substr(0, 6); // 目录
+
+    // 已经设置了日志的存储位置
     if (base_filename_selected_) {
-      if (!CreateLogfile(time_pid_string)) {
+      if (!CreateLogfile(date_string)) {
         perror("Could not create log file");
-        fprintf(stderr, "COULD NOT CREATE LOGFILE '%s'!\n",
-                time_pid_string.c_str());
+        fprintf(stderr, "COULD NOT CREATE LOGFILE '%s' '%s'!\n",
+                base_filename_.c_str(), date_string.c_str());
         return;
       }
     } else {
+
+    // 否则就默认存储到/tmp或者.目录
+
       // If no base filename for logs of this severity has been set, use a
       // default base filename of
       // "<program name>.<hostname>.<user name>.log.<severity level>.".  So
@@ -1051,8 +1072,8 @@ void LogFileObject::Write(bool force_flush,
       for (vector<string>::const_iterator dir = log_dirs.begin();
            dir != log_dirs.end();
            ++dir) {
-        base_filename_ = *dir + "/" + stripped_filename;
-        if ( CreateLogfile(time_pid_string) ) {
+        base_filename_ = *dir + "/" + date_prefix + "/" + stripped_filename;
+        if ( CreateLogfile(date_string) ) {
           success = true;
           break;
         }
@@ -1060,8 +1081,8 @@ void LogFileObject::Write(bool force_flush,
       // If we never succeeded, we have to give up
       if ( success == false ) {
         perror("Could not create logging file");
-        fprintf(stderr, "COULD NOT CREATE A LOGGINGFILE %s!",
-                time_pid_string.c_str());
+        fprintf(stderr, "COULD NOT CREATE A LOGGINGFILE '%s' '%s'!",
+                base_filename_.c_str(), date_string.c_str());
         return;
       }
     }
@@ -1079,8 +1100,8 @@ void LogFileObject::Write(bool force_flush,
                        << setw(2) << tm_time.tm_sec << '\n'
                        << "Running on machine: "
                        << LogDestination::hostname() << '\n'
-                       << "Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu "
-                       << "threadid file:line] msg" << '\n';
+                       << "Log line format: [yyyy-mm-ddThh:mm:ss.uuuuuu IWEF threadid "
+                       << "file:line] msg" << '\n';
     const string& file_header_string = file_header_stream.str();
 
     const int header_len = file_header_string.size();
@@ -1235,6 +1256,7 @@ void LogMessage::Init(const char* file,
   data_->fullname_ = file;
   data_->has_been_flushed_ = false;
 
+#if 1
   // If specified, prepend a prefix to each line.  For example:
   //    I1018 160715 f5d4fbb0 logging.cc:1153]
   //    (log level, GMT month, date, time, thread_id, file basename, line)
@@ -1255,6 +1277,34 @@ void LogMessage::Init(const char* file,
              << data_->basename_ << ':' << data_->line_ << "] ";
   }
   data_->num_prefix_chars_ = data_->stream_.pcount();
+
+#else
+
+  // If specified, prepend a prefix to each line.  For example:
+  // [yyyy-mm-ddThh:mm:ss.uuuuuu IWEF threadid file:line] msg
+  // We exclude the thread_id for the default thread.
+  if (FLAGS_log_prefix && (line != kNoLogPrefix)) {
+    stream() << '['
+             << setw(4) << 1900 + data_->tm_time_.tm_year << '-'
+             << setw(2) << 1 + data_->tm_time_.tm_mon  << '-'
+             << setw(2) << data_->tm_time_.tm_mday
+             << 'T'
+             << setw(2) << data_->tm_time_.tm_hour  << ':'
+             << setw(2) << data_->tm_time_.tm_min   << ':'
+             << setw(2) << data_->tm_time_.tm_sec   << "."
+             << setw(6) << usecs
+             << ' '
+             << LogSeverityNames[severity][0]
+             << ' '
+             << setfill(' ') << setw(5)
+             << static_cast<unsigned int>(GetTID()) << setfill('0')
+             << ' '
+             << data_->basename_ << ':' << data_->line_ << "] ";
+  }
+  data_->num_prefix_chars_ = data_->stream_.pcount();
+
+
+#endif
 
   if (!FLAGS_log_backtrace_at.empty()) {
     char fileline[128];

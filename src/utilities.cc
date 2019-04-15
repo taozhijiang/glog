@@ -243,6 +243,29 @@ bool PidHasChanged() {
   return true;
 }
 
+static int32 g_current_date = 0;
+
+int32 GetCurrentDate() {
+  DateHasChanged(::time(NULL));
+  return g_current_date;
+}
+
+bool DateHasChanged(time_t timestamp) {
+  struct ::tm tm_time;
+  localtime_r(&timestamp, &tm_time);
+
+  int32 curr_date = ( 1900 + tm_time.tm_year ) * 10000 +
+                    ( 1 + tm_time.tm_mon ) * 100 +
+                    ( tm_time.tm_mday);
+
+  if (curr_date == g_current_date) {
+    return false;
+  }
+
+  g_current_date = curr_date;
+  return true;
+}
+
 pid_t GetTID() {
   // On Linux and MacOSX, we try to use gettid().
 #if defined OS_LINUX || defined OS_MACOSX
